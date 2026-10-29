@@ -4,9 +4,16 @@ export type FontFamily = "NotoSansBengali" | "HindSiliguri" | "Inter";
 
 export type StyleId = "minimal" | "kinetic" | "fashion" | "social" | "corporate";
 
-export type TextPosition = "center" | "bottom" | "top";
+export type TextPosition =
+  | "center"
+  | "top"
+  | "bottom"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
 
-export type TextAnimation = "pop" | "highlight" | "slide" | "fade";
+export type TextAnimation = "pop" | "highlight" | "slide" | "fade" | "typewriter";
 
 export type SlideText = {
   headline?: string;
@@ -30,6 +37,8 @@ export type AudioConfig = {
   audioUrl?: string;
   volume?: number;
   loop?: boolean;
+  startFromSeconds?: number;
+  endAtSeconds?: number;
 };
 
 export type VideoProps = {

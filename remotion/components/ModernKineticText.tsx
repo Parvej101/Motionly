@@ -27,6 +27,7 @@ export const ModernKineticText = ({
   position = "center",
   animation = "pop",
   delay = 0,
+  durationInFrames,
   maxWidth,
   scale = 1,
   style,
@@ -39,12 +40,22 @@ export const ModernKineticText = ({
   const words = (headline || "").trim().split(/\s+/).filter(Boolean);
 
   // Position alignment styling
+  const isLeft = position === "top-left" || position === "bottom-left";
+  const isRight = position === "top-right" || position === "bottom-right";
+
   const positionStyles: Record<TextPosition, CSSProperties> = {
     center: {
       alignItems: "center",
       justifyContent: "center",
       textAlign: "center",
       margin: "auto 0",
+    },
+    top: {
+      alignItems: "center",
+      justifyContent: "flex-start",
+      textAlign: "center",
+      marginTop: isHorizontal ? 50 : 80,
+      marginBottom: "auto",
     },
     bottom: {
       alignItems: "center",
@@ -53,12 +64,37 @@ export const ModernKineticText = ({
       marginTop: "auto",
       marginBottom: isHorizontal ? 60 : 100,
     },
-    top: {
-      alignItems: "center",
+    "top-left": {
+      alignItems: "flex-start",
       justifyContent: "flex-start",
-      textAlign: "center",
+      textAlign: "left",
       marginTop: isHorizontal ? 50 : 80,
       marginBottom: "auto",
+      paddingLeft: isHorizontal ? 32 : 16,
+    },
+    "top-right": {
+      alignItems: "flex-end",
+      justifyContent: "flex-start",
+      textAlign: "right",
+      marginTop: isHorizontal ? 50 : 80,
+      marginBottom: "auto",
+      paddingRight: isHorizontal ? 32 : 16,
+    },
+    "bottom-left": {
+      alignItems: "flex-start",
+      justifyContent: "flex-end",
+      textAlign: "left",
+      marginTop: "auto",
+      marginBottom: isHorizontal ? 60 : 100,
+      paddingLeft: isHorizontal ? 32 : 16,
+    },
+    "bottom-right": {
+      alignItems: "flex-end",
+      justifyContent: "flex-end",
+      textAlign: "right",
+      marginTop: "auto",
+      marginBottom: isHorizontal ? 60 : 100,
+      paddingRight: isHorizontal ? 32 : 16,
     },
   };
 
@@ -90,18 +126,62 @@ export const ModernKineticText = ({
         ...style,
       }}
     >
-      {/* Dynamic Headline with Words Animation */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: position === "center" || position === "bottom" || position === "top" ? "center" : "flex-start",
-          gap: `${responsiveFontSize * 0.16}px ${responsiveFontSize * 0.28}px`,
-          lineHeight: 1.25,
-          fontFamily,
-        }}
-      >
-        {words.map((word, index) => {
+      {/* Dynamic Headline with Words / Typewriter Animation */}
+      {animation === "typewriter" ? (
+        (() => {
+          const chars = Array.from(headline || "");
+          const availableFrames = durationInFrames ? Math.max(25, durationInFrames * 0.65) : 45;
+          const typingDuration = Math.min(availableFrames, Math.max(16, chars.length * 1.3));
+          const charIndex = Math.min(chars.length, Math.floor((currentFrame / typingDuration) * chars.length));
+          const visibleText = chars.slice(0, charIndex).join("");
+          const isTyping = charIndex < chars.length;
+          const showCursor = isTyping || (Math.floor(frame / 12) % 2 === 0);
+
+          return (
+            <div
+              style={{
+                fontSize: responsiveFontSize,
+                fontWeight: 800,
+                letterSpacing: "-0.015em",
+                lineHeight: 1.25,
+                color: "#ffffff",
+                textShadow: "0 4px 18px rgba(0,0,0,0.85), 0 1px 4px rgba(0,0,0,0.9)",
+                filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.6))",
+                textAlign: isLeft ? "left" : isRight ? "right" : "center",
+                fontFamily,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              <span>{visibleText}</span>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: Math.max(3, Math.round(responsiveFontSize * 0.06)),
+                  height: "0.85em",
+                  backgroundColor: brandColor,
+                  marginLeft: "4px",
+                  verticalAlign: "middle",
+                  borderRadius: "2px",
+                  opacity: showCursor ? 1 : 0,
+                  boxShadow: `0 0 12px ${brandColor}`,
+                }}
+              />
+            </div>
+          );
+        })()
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: isLeft ? "flex-start" : isRight ? "flex-end" : "center",
+            gap: `${responsiveFontSize * 0.16}px ${responsiveFontSize * 0.28}px`,
+            lineHeight: 1.25,
+            fontFamily,
+          }}
+        >
+          {words.map((word, index) => {
           // Staggered frame per word
           const wordDelay = index * 4;
           const wordFrame = currentFrame - wordDelay;
@@ -201,6 +281,7 @@ export const ModernKineticText = ({
           );
         })}
       </div>
+    )}
 
       {/* Modern Subtitle */}
       {subtitle && (
@@ -208,10 +289,17 @@ export const ModernKineticText = ({
           style={{
             marginTop: isHorizontal ? 18 : 22,
             fontFamily,
+            display: "flex",
+            justifyContent: isLeft ? "flex-start" : isRight ? "flex-end" : "center",
+            width: "100%",
           }}
         >
           {(() => {
-            const subFrame = currentFrame - (words.length * 3 + 8);
+            const typeDelay = Math.min(
+              durationInFrames ? Math.max(25, durationInFrames * 0.65) : 45,
+              Math.max(16, (headline || "").length * 1.3),
+            );
+            const subFrame = currentFrame - (animation === "typewriter" ? Math.round(typeDelay * 0.85) : (words.length * 3 + 8));
             const subSpr = spring({
               frame: subFrame,
               fps,
@@ -230,6 +318,7 @@ export const ModernKineticText = ({
                   fontSize: Math.round(responsiveFontSize * 0.42),
                   fontWeight: 500,
                   lineHeight: 1.4,
+                  textAlign: isLeft ? "left" : isRight ? "right" : "center",
                   color: "rgba(255, 255, 255, 0.92)",
                   opacity: subOpacity,
                   transform: `translate3d(0, ${subTranslateY}px, 0)`,
@@ -256,6 +345,9 @@ export const ModernKineticText = ({
           style={{
             marginTop: isHorizontal ? 24 : 28,
             fontFamily,
+            display: "flex",
+            justifyContent: isLeft ? "flex-start" : isRight ? "flex-end" : "center",
+            width: "100%",
           }}
         >
           {(() => {

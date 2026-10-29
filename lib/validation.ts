@@ -121,14 +121,31 @@ export const parseRenderSubmission = (formData: FormData): RenderSubmission => {
     }
   }
 
-  const allowedPositions = new Set(["center", "bottom", "top"]);
+  const allowedPositions = new Set([
+    "center",
+    "bottom",
+    "top",
+    "top-left",
+    "top-right",
+    "bottom-left",
+    "bottom-right",
+  ]);
   const rawPosition = asString(parsed.textPosition);
-  const textPosition = allowedPositions.has(rawPosition) ? (rawPosition as "center" | "bottom" | "top") : "center";
+  const textPosition = allowedPositions.has(rawPosition)
+    ? (rawPosition as
+        | "center"
+        | "bottom"
+        | "top"
+        | "top-left"
+        | "top-right"
+        | "bottom-left"
+        | "bottom-right")
+    : "center";
 
-  const allowedAnimations = new Set(["pop", "highlight", "slide", "fade"]);
+  const allowedAnimations = new Set(["pop", "highlight", "slide", "fade", "typewriter"]);
   const rawAnimation = asString(parsed.textAnimation);
   const textAnimation = allowedAnimations.has(rawAnimation)
-    ? (rawAnimation as "pop" | "highlight" | "slide" | "fade")
+    ? (rawAnimation as "pop" | "highlight" | "slide" | "fade" | "typewriter")
     : "pop";
 
   let slideTexts = undefined;
@@ -159,10 +176,14 @@ export const parseRenderSubmission = (formData: FormData): RenderSubmission => {
   if (parsed.audio && typeof parsed.audio === "object") {
     const a = parsed.audio as Record<string, unknown>;
     if (typeof a.audioUrl === "string" && a.audioUrl) {
+      const startFromSeconds = typeof a.startFromSeconds === "number" && a.startFromSeconds >= 0 ? a.startFromSeconds : 0;
+      const endAtSeconds = typeof a.endAtSeconds === "number" && a.endAtSeconds > startFromSeconds ? a.endAtSeconds : undefined;
       audio = {
         audioUrl: a.audioUrl,
         volume: typeof a.volume === "number" ? Math.max(0, Math.min(1, a.volume)) : 1,
         loop: Boolean(a.loop),
+        startFromSeconds,
+        endAtSeconds,
       };
     }
   }

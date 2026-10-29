@@ -17,6 +17,7 @@ export const SocialPromoStyle = (props: VideoProps) => {
   const fontFamily = getFontStack(props.fontFamily);
   const entrance = spring({ frame, fps, config: { damping: 16, mass: 0.8, stiffness: 120 } });
   const float = Math.sin(frame / 28) * 10;
+  const hasSlideTexts = Boolean(props.slideTexts && props.slideTexts.length > 0);
 
   return (
     <AbsoluteFill
@@ -146,17 +147,48 @@ export const SocialPromoStyle = (props: VideoProps) => {
             paddingLeft: horizontal ? 0 : 8,
           }}
         >
-          <ModernKineticText
-            headline={props.headline}
-            subtitle={props.subtitle}
-            cta={props.cta}
-            brandColor="#ffffff"
-            fontFamily={fontFamily}
-            position={props.textPosition || "center"}
-            animation={props.textAnimation || "pop"}
-            durationInFrames={durationInFrames}
-            maxWidth="100%"
-          />
+          {hasSlideTexts ? (
+            scenes.map((scene) => {
+              const slide = props.slideTexts?.[scene.index];
+              const headline = slide?.headline || "";
+              const subtitle = slide?.subtitle || "";
+              const isLastScene = scene.index === scenes.length - 1;
+              if (!headline && !subtitle && (!isLastScene || !props.cta)) {
+                return null;
+              }
+              return (
+                <Sequence
+                  key={`text-${scene.index}`}
+                  from={scene.from}
+                  durationInFrames={scene.durationInFrames}
+                >
+                  <ModernKineticText
+                    headline={headline}
+                    subtitle={subtitle}
+                    cta={isLastScene ? props.cta : undefined}
+                    brandColor="#ffffff"
+                    fontFamily={fontFamily}
+                    position={slide?.textPosition || props.textPosition || "center"}
+                    animation={slide?.textAnimation || props.textAnimation || "pop"}
+                    durationInFrames={scene.durationInFrames}
+                    maxWidth="100%"
+                  />
+                </Sequence>
+              );
+            })
+          ) : (
+            <ModernKineticText
+              headline={props.headline}
+              subtitle={props.subtitle}
+              cta={props.cta}
+              brandColor="#ffffff"
+              fontFamily={fontFamily}
+              position={props.textPosition || "center"}
+              animation={props.textAnimation || "pop"}
+              durationInFrames={durationInFrames}
+              maxWidth="100%"
+            />
+          )}
         </div>
       </div>
 
@@ -169,6 +201,12 @@ export const SocialPromoStyle = (props: VideoProps) => {
           src={props.audio.audioUrl}
           volume={props.audio.volume ?? 1}
           loop={props.audio.loop ?? true}
+          startFrom={Math.round((props.audio.startFromSeconds ?? 0) * fps)}
+          endAt={
+            props.audio.endAtSeconds && props.audio.endAtSeconds > (props.audio.startFromSeconds ?? 0)
+              ? Math.round(props.audio.endAtSeconds * fps)
+              : undefined
+          }
         />
       ) : null}
 

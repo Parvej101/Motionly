@@ -1,6 +1,7 @@
-import { AbsoluteFill, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { AnimatedText } from "../components/AnimatedText";
 import { KenBurns } from "../components/KenBurns";
+import { PresenterPip } from "../components/PresenterPip";
 import { Transition } from "../components/Transition";
 import { Watermark } from "../components/Watermark";
 import { readableOn, withAlpha } from "../color";
@@ -10,10 +11,11 @@ import type { VideoProps } from "../types";
 
 export const MinimalStyle = (props: VideoProps) => {
   const frame = useCurrentFrame();
-  const { width, height, durationInFrames } = useVideoConfig();
+  const { width, height, durationInFrames, fps } = useVideoConfig();
   const scenes = buildScenes(props.images, durationInFrames);
   const horizontal = width > height;
   const fontFamily = getFontStack(props.fontFamily);
+  const hasSlideTexts = Boolean(props.slideTexts && props.slideTexts.length > 0);
   const headlineLength = props.headline?.length ?? 0;
   const baseSize = horizontal ? 92 : 78;
   const headlineSize = Math.max(42, Math.min(baseSize, baseSize - Math.max(0, headlineLength - 34) * 1.1));
@@ -98,63 +100,167 @@ export const MinimalStyle = (props: VideoProps) => {
             padding: horizontal ? "12px 16px 12px 0" : "0 8px",
           }}
         >
-          <div
-            style={{
-              width: lineWidth,
-              height: 7,
-              borderRadius: 999,
-              backgroundColor: props.brandColor,
-              marginBottom: 26,
-            }}
-          />
-          <AnimatedText
-            text={props.headline}
-            delay={4}
-            fontSize={headlineSize}
-            fontWeight={700}
-            color="#141416"
-            fontFamily={fontFamily}
-            lineHeight={1.08}
-            letterSpacing={-1.4}
-            maxWidth="100%"
-          />
-          {props.subtitle ? (
-            <AnimatedText
-              text={props.subtitle}
-              delay={16}
-              fontSize={horizontal ? 30 : 32}
-              fontWeight={400}
-              color="#5c574e"
-              fontFamily={fontFamily}
-              lineHeight={1.45}
-              letterSpacing={0}
-              maxWidth={horizontal ? 560 : "94%"}
-              style={{ marginTop: 22 }}
-            />
-          ) : null}
-          {props.cta ? (
-            <div style={{ marginTop: 34 }}>
-              <AnimatedText
-                text={props.cta}
-                delay={26}
-                fontSize={horizontal ? 24 : 26}
-                fontWeight={700}
-                color={readableOn(props.brandColor)}
-                fontFamily={fontFamily}
-                letterSpacing={0.6}
-                align="center"
+          {hasSlideTexts ? (
+            scenes.map((scene) => {
+              const slide = props.slideTexts?.[scene.index];
+              const headline = slide?.headline || "";
+              const subtitle = slide?.subtitle || "";
+              const isLastScene = scene.index === scenes.length - 1;
+              if (!headline && !subtitle && (!isLastScene || !props.cta)) {
+                return null;
+              }
+
+              const slideHeadlineSize = Math.max(42, Math.min(baseSize, baseSize - Math.max(0, headline.length - 34) * 1.1));
+
+              return (
+                <Sequence key={`text-${scene.index}`} from={scene.from} durationInFrames={scene.durationInFrames}>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", width: "100%" }}>
+                    <div
+                      style={{
+                        width: lineWidth,
+                        height: 7,
+                        borderRadius: 999,
+                        backgroundColor: props.brandColor,
+                        marginBottom: 26,
+                      }}
+                    />
+                    {headline ? (
+                      <AnimatedText
+                        text={headline}
+                        delay={4}
+                        fontSize={slideHeadlineSize}
+                        fontWeight={700}
+                        color="#141416"
+                        fontFamily={fontFamily}
+                        lineHeight={1.08}
+                        letterSpacing={-1.4}
+                        maxWidth="100%"
+                        animation={slide?.textAnimation || props.textAnimation}
+                        brandColor={props.brandColor}
+                        durationInFrames={scene.durationInFrames}
+                      />
+                    ) : null}
+                    {subtitle ? (
+                      <AnimatedText
+                        text={subtitle}
+                        delay={14}
+                        fontSize={horizontal ? 30 : 32}
+                        fontWeight={400}
+                        color="#5c574e"
+                        fontFamily={fontFamily}
+                        lineHeight={1.45}
+                        letterSpacing={0}
+                        maxWidth={horizontal ? 560 : "94%"}
+                        style={{ marginTop: 22 }}
+                      />
+                    ) : null}
+                    {isLastScene && props.cta ? (
+                      <div style={{ marginTop: 34 }}>
+                        <AnimatedText
+                          text={props.cta}
+                          delay={20}
+                          fontSize={horizontal ? 24 : 26}
+                          fontWeight={700}
+                          color={readableOn(props.brandColor)}
+                          fontFamily={fontFamily}
+                          letterSpacing={0.6}
+                          align="center"
+                          style={{
+                            display: "inline-block",
+                            padding: "16px 30px",
+                            borderRadius: 999,
+                            backgroundColor: props.brandColor,
+                            boxShadow: `0 16px 40px ${withAlpha(props.brandColor, 0.32)}`,
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </Sequence>
+              );
+            })
+          ) : (
+            <>
+              <div
                 style={{
-                  display: "inline-block",
-                  padding: "16px 30px",
+                  width: lineWidth,
+                  height: 7,
                   borderRadius: 999,
                   backgroundColor: props.brandColor,
-                  boxShadow: `0 16px 40px ${withAlpha(props.brandColor, 0.32)}`,
+                  marginBottom: 26,
                 }}
               />
-            </div>
-          ) : null}
+              <AnimatedText
+                text={props.headline}
+                delay={4}
+                fontSize={headlineSize}
+                fontWeight={700}
+                color="#141416"
+                fontFamily={fontFamily}
+                lineHeight={1.08}
+                letterSpacing={-1.4}
+                maxWidth="100%"
+                animation={props.textAnimation}
+                brandColor={props.brandColor}
+                durationInFrames={durationInFrames}
+              />
+              {props.subtitle ? (
+                <AnimatedText
+                  text={props.subtitle}
+                  delay={16}
+                  fontSize={horizontal ? 30 : 32}
+                  fontWeight={400}
+                  color="#5c574e"
+                  fontFamily={fontFamily}
+                  lineHeight={1.45}
+                  letterSpacing={0}
+                  maxWidth={horizontal ? 560 : "94%"}
+                  style={{ marginTop: 22 }}
+                />
+              ) : null}
+              {props.cta ? (
+                <div style={{ marginTop: 34 }}>
+                  <AnimatedText
+                    text={props.cta}
+                    delay={26}
+                    fontSize={horizontal ? 24 : 26}
+                    fontWeight={700}
+                    color={readableOn(props.brandColor)}
+                    fontFamily={fontFamily}
+                    letterSpacing={0.6}
+                    align="center"
+                    style={{
+                      display: "inline-block",
+                      padding: "16px 30px",
+                      borderRadius: 999,
+                      backgroundColor: props.brandColor,
+                      boxShadow: `0 16px 40px ${withAlpha(props.brandColor, 0.32)}`,
+                    }}
+                  />
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
+      {/* Picture-in-Picture Presenter Video (Course / Loom Style) */}
+      <PresenterPip presenter={props.presenter} brandColor={props.brandColor} />
+
+      {/* Synchronized Audio (Voiceover / Background Track) */}
+      {props.audio?.audioUrl ? (
+        <Audio
+          src={props.audio.audioUrl}
+          volume={props.audio.volume ?? 1}
+          loop={props.audio.loop ?? true}
+          startFrom={Math.round((props.audio.startFromSeconds ?? 0) * fps)}
+          endAt={
+            props.audio.endAtSeconds && props.audio.endAtSeconds > (props.audio.startFromSeconds ?? 0)
+              ? Math.round(props.audio.endAtSeconds * fps)
+              : undefined
+          }
+        />
+      ) : null}
+
       <Watermark visible={props.watermark} />
     </AbsoluteFill>
   );

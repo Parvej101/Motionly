@@ -11,11 +11,11 @@ import type { VideoProps } from "../types";
 
 export const KineticStyle = (props: VideoProps) => {
   const frame = useCurrentFrame();
-  const { width, height, durationInFrames } = useVideoConfig();
+  const { width, height, durationInFrames, fps } = useVideoConfig();
   const scenes = buildScenes(props.images, durationInFrames);
   const isHorizontal = width > height;
   const fontFamily = getFontStack(props.fontFamily);
-  const hasSlideTexts = Boolean(props.slideTexts && props.slideTexts.some((s) => s.headline));
+  const hasSlideTexts = Boolean(props.slideTexts && props.slideTexts.length > 0);
 
   const progress = interpolate(frame, [0, durationInFrames], [0, 100], {
     extrapolateLeft: "clamp",
@@ -133,8 +133,8 @@ export const KineticStyle = (props: VideoProps) => {
           // Scene-by-Scene synced text mode
           scenes.map((scene) => {
             const slide = props.slideTexts?.[scene.index];
-            const headline = slide?.headline || (scene.index === 0 ? props.headline : "");
-            const subtitle = slide?.subtitle || (scene.index === 0 ? props.subtitle : "");
+            const headline = slide?.headline || "";
+            const subtitle = slide?.subtitle || "";
             const isLastScene = scene.index === scenes.length - 1;
 
             if (!headline && !subtitle && (!isLastScene || !props.cta)) {
@@ -157,7 +157,7 @@ export const KineticStyle = (props: VideoProps) => {
                   }}
                 >
                   <ModernKineticText
-                    headline={headline || (isLastScene ? props.headline : "")}
+                    headline={headline}
                     subtitle={subtitle}
                     cta={isLastScene ? props.cta : undefined}
                     brandColor={props.brandColor}
@@ -194,6 +194,12 @@ export const KineticStyle = (props: VideoProps) => {
           src={props.audio.audioUrl}
           volume={props.audio.volume ?? 1}
           loop={props.audio.loop ?? true}
+          startFrom={Math.round((props.audio.startFromSeconds ?? 0) * fps)}
+          endAt={
+            props.audio.endAtSeconds && props.audio.endAtSeconds > (props.audio.startFromSeconds ?? 0)
+              ? Math.round(props.audio.endAtSeconds * fps)
+              : undefined
+          }
         />
       ) : null}
 
