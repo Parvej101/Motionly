@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #07070b;
+  --foreground: #f4f4f7;
+  --surface: #101017;
+  --muted: #8b8b98;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -12,15 +15,78 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  min-height: 100%;
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(124, 92, 255, 0.16), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 100% 10%, rgba(255, 179, 122, 0.06), transparent 70%);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(124, 92, 255, 0.35);
+  color: #ffffff;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+  background-clip: content-box;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+input[type="color"] {
+  color-scheme: dark;
+}
+
+input[type="range"] {
+  accent-color: #7c5cff;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 3px solid #7c5cff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.65);
+  outline-offset: 2px;
 }

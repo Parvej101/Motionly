@@ -1,9 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  serverExternalPackages: [
+    "@remotion/bundler",
+    "@remotion/renderer",
+    "mongodb",
+    "sharp",
+  ],
+  outputFileTracingIncludes: {
+    "/api/render": ["./remotion/**/*"],
+  },
   turbopack: {
     rules: {
       "*.css": {

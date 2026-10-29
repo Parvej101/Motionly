@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Motionly
 
-## Getting Started
+A motion graphics video generator built with Next.js, Remotion, MongoDB, and Tailwind CSS. Upload 1–10 images, write Bangla or English copy, preview live in the browser, then render and download an MP4. Videos and source images are temporary and removed after download.
 
-First, run the development server:
+## Features
+
+- Live Remotion `<Player>` preview using browser object URLs. Nothing uploads until **Generate**.
+- Five code-based styles: Minimal, Kinetic Typography, Fashion Luxury, Social Promo, Corporate.
+- Bangla-ready fonts through `@remotion/google-fonts`: Noto Sans Bengali, Hind Siliguri, Inter.
+- Aspect ratios: 9:16, 1:1, 16:9. Durations from 5 to 30 seconds at 30 fps.
+- Server rendering with `@remotion/bundler` and `@remotion/renderer`, capped at two concurrent renders.
+- `sharp` resizing before render, data-URL image props for the renderer, temp folders under the OS temp directory.
+- Optional email/password accounts with signed HTTP-only session cookies.
+- Free-tier limits, watermarks, per-IP rate limits, and automatic cleanup.
+- MongoDB stores only `users` and short-lived `render_jobs` (TTL index, one hour).
+
+## Requirements
+
+- Node.js 20+
+- A Chromium/Chrome binary. On Windows, Chrome or Edge is detected automatically. On other platforms, install Chrome or let Remotion download its headless shell on first render.
+- Internet access when the renderer loads Google Fonts.
+- MongoDB if you want accounts. Guest rendering works without it (jobs are kept in memory).
+
+## Setup
 
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The editor is at `/editor`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Purpose |
+|---|---|
+| `MONGODB_URI` | MongoDB connection string. Required for accounts and persistent job status. |
+| `MONGODB_DB` | Database name, defaults to `motionly`. |
+| `AUTH_SECRET` | Secret used to sign session cookies. Set this in production. |
+| `REMOTION_BROWSER_EXECUTABLE` | Optional path to Chrome/Chromium for rendering. |
+| `RENDER_CONCURRENCY` | Concurrent render limit, defaults to `2`. |
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run dev        # Next.js dev server
+npm run build      # production build
+npm run start      # production server
+npm run lint       # ESLint
+npm run typecheck  # TypeScript, no emit
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Flow
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. `/editor` keeps images in memory as `blob:` URLs and previews the selected Remotion composition.
+2. `POST /api/render` validates the upload, resizes images with `sharp`, writes them to `<tmp>/vidgen/<jobId>/`, creates a `render_jobs` document, and schedules the render after responding.
+3. The renderer bundles Remotion once, selects the composition, and writes `out.mp4` into the job folder.
+4. The browser polls `GET /api/render/[id]/status`.
+5. `GET /api/render/[id]/download` streams the MP4 and deletes the job folder when the stream closes.
+6. A background sweeper removes any job folder older than 30 minutes. MongoDB TTL removes job documents after one hour.
 
-## Deploy on Vercel
+## Limits
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Guests: three free renders per month per IP, watermark included.
+- Free accounts: three renders per month, watermark included.
+- Pro accounts: 100 renders per month, no watermark.
+- `/api/render` is rate limited per IP and per user.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+Rendering needs a real server with Chromium and ffmpeg. Do not deploy the renderer to serverless functions such as Vercel Functions. Use a VPS or a Docker worker with a persistent filesystem for the temp folder, and point `MONGODB_URI` at MongoDB Atlas or another persistent MongoDB instance.
+
+Remotion has commercial licensing terms for companies. Check them before launch.
+
+## Project structure
+
+```
+app/(marketing)/page.tsx                  landing page
+app/editor/page.tsx                       editor + live preview
+app/login/page.tsx                        accounts
+app/api/render/route.ts                   upload, validate, start render
+app/api/render/[id]/status/route.ts       job status
+app/api/render/[id]/download/route.ts     stream MP4, delete files
+app/api/auth/*                            signup, login, logout, session
+remotion/Root.tsx                         composition registry
+remotion/compositions/*                   five styles
+remotion/components/*                     AnimatedText, KenBurns, Transition, Watermark
+lib/*                                     db, jobs, temp files, limiter, auth, usage
+```
