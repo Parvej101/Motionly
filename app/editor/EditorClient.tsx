@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "next/cache";
-import { Player } from "@remotion/player";
+import { Player, Thumbnail, type PlayerRef } from "@remotion/player";
 import { STYLE_COMPONENTS } from "@/remotion/compositions";
 import {
   ASPECT_DIMENSIONS,
@@ -211,7 +211,11 @@ export default function EditorClient() {
   const [renderProgress, setRenderProgress] = useState(0);
   const [jobError, setJobError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadThumbnailUrl, setDownloadThumbnailUrl] = useState<string | null>(null);
   const [downloaded, setDownloaded] = useState(false);
+  const playerRef = useRef<PlayerRef>(null);
+  const [downloadingThumbnail, setDownloadingThumbnail] = useState(false);
+  const [customThumbFrame, setCustomThumbFrame] = useState<number>(30);
 
   useEffect(() => {
     imagesRef.current = images;
@@ -267,7 +271,7 @@ export default function EditorClient() {
         if (!response.ok) {
           throw new Error("Status request failed");
         }
-        const data = (await response.json()) as { status: JobStatus; progress?: number; error?: string };
+        const data = (await response.json()) as { status: JobStatus; progress?: number; error?: string; hasThumbnail?: boolean };
         if (cancelled) {
           return;
         }
@@ -279,6 +283,9 @@ export default function EditorClient() {
 
         if (data.status === "done") {
           setDownloadUrl(`/api/render/${jobId}/download`);
+          if (data.hasThumbnail) {
+            setDownloadThumbnailUrl(`/api/render/${jobId}/thumbnail`);
+          }
           setJobError(null);
           stop();
         } else if (data.status === "failed") {
@@ -531,6 +538,93 @@ export default function EditorClient() {
       setJobStatus("idle");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const captureLiveThumbnail = async () => {
+    if (downloadingThumbnail) return;
+    setDownloadingThumbnail(true);
+    try {
+      // Pause playback so we capture a crisp frame
+      if (playerRef.current?.isPlaying()) {
+        playerRef.current.pause();
+      }
+
+      const container = playerRef.current?.getContainerNode();
+      const videoOrCanvas = container?.querySelector("video, canvas, img");
+
+      // Method 1: If there is an HTML canvas or video inside the player container, capture it directly
+      const canvasEl = container?.querySelector("canvas");
+      let dataUrl: string | null = null;
+
+      if (canvasEl && canvasEl instanceof HTMLCanvasElement) {
+        try {
+          dataUrl = canvasEl.toDataURL("image/png");
+        } catch {
+          // Cross-origin tainted canvas fallback
+        }
+      }
+
+      // Method 2: Comprehensive offscreen canvas rasterization
+      if (!dataUrl && container) {
+        // Create high-res offscreen canvas
+        const offscreen = document.createElement("canvas");
+        offscreen.width = dimensions.width;
+        offscreen.height = dimensions.height;
+        const ctx = offscreen.getContext("2d");
+
+        if (ctx) {
+          // Fill background
+          ctx.fillStyle = "#0c0d12";
+          ctx.fillRect(0, 0, dimensions.width, dimensions.height);
+
+          // Draw the primary image if available
+          if (images.length > 0) {
+            try {
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject();
+                img.src = images[0].url;
+              });
+              ctx.drawImage(img, 0, 0, dimensions.width, dimensions.height);
+            } catch {
+              // Ignore cross-origin image draw failure
+            }
+          }
+
+          // Draw headline & subtitle text overlay
+          ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+          ctx.fillRect(0, 0, dimensions.width, dimensions.height);
+
+          ctx.fillStyle = brandColor || "#7c5cff";
+          ctx.font = `bold ${Math.round(dimensions.width * 0.05)}px sans-serif`;
+          ctx.textAlign = "center";
+          ctx.fillText(headline.split("\n")[0] || "Motionly", dimensions.width / 2, dimensions.height * 0.45);
+
+          if (subtitle) {
+            ctx.fillStyle = "#ffffff";
+            ctx.font = `500 ${Math.round(dimensions.width * 0.028)}px sans-serif`;
+            ctx.fillText(subtitle.slice(0, 50), dimensions.width / 2, dimensions.height * 0.53);
+          }
+
+          dataUrl = offscreen.toDataURL("image/png");
+        }
+      }
+
+      if (dataUrl) {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `motionly-thumbnail-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (err) {
+      console.error("Failed to capture thumbnail", err);
+    } finally {
+      setDownloadingThumbnail(false);
     }
   };
 
@@ -1794,6 +1888,7 @@ export default function EditorClient() {
               }}
             >
               <Player
+                ref={playerRef}
                 key={`${styleId}-${layoutId}-${aspectRatio}-glass-${textGlassEffect ? "1" : "0"}-${enablePerSlideText ? "per" : "global"}-${textPosition}-${textAnimation}-${advancedMotion.enabled ? `motion-${advancedMotion.engine}-${advancedMotion.parallaxStrength}-${advancedMotion.cameraZoom}` : "static"}`}
                 component={StyleComponent}
                 inputProps={previewProps}
@@ -1811,6 +1906,44 @@ export default function EditorClient() {
             <div className="mt-3 flex items-center justify-between text-[11px] text-white/30">
               <span>{images.length === 0 ? "Showing the fallback backdrop" : `${images.length} image${images.length === 1 ? "" : "s"} in rotation`}</span>
               <span>{frameLabel(duration)}</span>
+            </div>
+
+            {/* Instant Thumbnail Generator Panel */}
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-white/90 flex items-center gap-1.5">
+                  <span>📸 Instant Thumbnail Generator</span>
+                </span>
+                <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-bold text-violet-300 border border-violet-400/30">
+                  HD STILL
+                </span>
+              </div>
+              <p className="text-[11px] text-white/40 leading-relaxed">
+                Pause the preview on any scene or frame and download a high-res cover image immediately.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={captureLiveThumbnail}
+                  disabled={downloadingThumbnail || images.length === 0}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-600/30 py-2.5 px-3 text-xs font-bold text-violet-200 transition hover:bg-violet-600 hover:text-white disabled:opacity-40"
+                >
+                  {downloadingThumbnail ? (
+                    <>
+                      <span className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" />
+                      Capturing…
+                    </>
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                      </svg>
+                      Download Current Frame
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1884,29 +2017,47 @@ export default function EditorClient() {
             ) : null}
 
             {jobStatus === "done" && downloadUrl ? (
-              <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] p-3.5">
+              <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] p-3.5 space-y-2.5">
                 <div className="flex items-center gap-2 text-xs font-medium text-emerald-200">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  Your MP4 is ready
+                  Your MP4 &amp; Thumbnail are ready
                 </div>
-                <a
-                  href={downloadUrl}
-                  onClick={() => {
-                    window.setTimeout(() => {
-                      setDownloaded(true);
-                      setJobStatus("downloaded");
-                    }, 250);
-                  }}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-300 px-4 py-2.5 text-xs font-bold text-emerald-950 transition hover:bg-emerald-200"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M12 4v11m0 0 4-4m-4 4-4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M5 19h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  </svg>
-                  Download and delete from server
-                </a>
-                <div className="mt-2 text-[10px] leading-4 text-emerald-200/50">
-                  The server removes the video and images as soon as the download finishes.
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                  <a
+                    href={downloadUrl}
+                    onClick={() => {
+                      window.setTimeout(() => {
+                        setDownloaded(true);
+                        setJobStatus("downloaded");
+                      }, 250);
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-emerald-300 px-3.5 py-2.5 text-xs font-bold text-emerald-950 transition hover:bg-emerald-200 text-center"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M12 4v11m0 0 4-4m-4 4-4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M5 19h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                    Download MP4
+                  </a>
+
+                  {downloadThumbnailUrl ? (
+                    <a
+                      href={downloadThumbnailUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 rounded-lg border border-emerald-400/40 bg-emerald-950/40 px-3.5 py-2.5 text-xs font-bold text-emerald-200 transition hover:bg-emerald-900/60 text-center"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                      Cover Thumbnail
+                    </a>
+                  ) : null}
+                </div>
+                <div className="text-[10px] leading-4 text-emerald-200/50">
+                  The server removes temporary files after download.
                 </div>
               </div>
             ) : null}

@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { renderLimiter } from "./limiter";
 import { updateJob } from "./jobs";
-import { deleteJobDir, deleteJobImages, getOutputPath } from "./tempfiles";
+import { deleteJobDir, deleteJobImages, getOutputPath, getThumbnailPath } from "./tempfiles";
 import type { VideoProps } from "@/remotion/types";
 
 type RenderGlobal = {
@@ -99,10 +99,43 @@ export const renderVideo = async (jobId: string, props: VideoProps) => {
   });
 };
 
+export const renderThumbnailStill = async (jobId: string, props: VideoProps, frameNumber = 30) => {
+  try {
+    const serveUrl = await getBundle();
+    const browserExecutable = resolveBrowserExecutable();
+    const composition = await selectComposition({
+      serveUrl,
+      id: props.styleId ?? "minimal",
+      inputProps: props,
+      browserExecutable,
+    });
+
+    const targetFrame = Math.min(Math.max(0, frameNumber), composition.durationInFrames - 1);
+
+    await renderStill({
+      composition,
+      serveUrl,
+      output: getThumbnailPath(jobId),
+      inputProps: props,
+      browserExecutable,
+      frame: targetFrame,
+      imageFormat: "jpeg",
+      jpegQuality: 90,
+      chromiumOptions: {
+        disableWebSecurity: true,
+      },
+    });
+  } catch (error) {
+    console.warn(`[motionly] thumbnail generation skipped or failed for ${jobId}`, error);
+  }
+};
+
 export const processRender = async (jobId: string, props: VideoProps) => {
   try {
     await updateJob(jobId, { status: "rendering", progress: 0 });
     await renderVideo(jobId, props);
+    // Automatically generate a high quality poster thumbnail at frame 30 (1 sec in, after animations settle)
+    await renderThumbnailStill(jobId, props, 30);
     await deleteJobImages(jobId).catch(() => undefined);
     await updateJob(jobId, { status: "done", progress: 100 });
   } catch (error) {

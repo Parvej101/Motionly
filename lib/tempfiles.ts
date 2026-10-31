@@ -21,6 +21,8 @@ export const getJobDir = (jobId: string) => {
 
 export const getOutputPath = (jobId: string) => path.join(getJobDir(jobId), "out.mp4");
 
+export const getThumbnailPath = (jobId: string) => path.join(getJobDir(jobId), "thumbnail.jpg");
+
 export const getImagePath = (jobId: string, index: number) =>
   path.join(getJobDir(jobId), `image-${index}.jpg`);
 
@@ -65,7 +67,15 @@ export const readJobOutput = async (jobId: string) => {
   return { outputPath, size: info.size };
 };
 
+export const readJobThumbnail = async (jobId: string) => {
+  const thumbnailPath = getThumbnailPath(jobId);
+  const info = await stat(thumbnailPath);
+  return { thumbnailPath, size: info.size };
+};
+
 export const createOutputReadStream = (jobId: string) => createReadStream(getOutputPath(jobId));
+
+export const createThumbnailReadStream = (jobId: string) => createReadStream(getThumbnailPath(jobId));
 
 export const sweepOldJobs = async (maxAgeMs = JOB_TTL_MS) => {
   let entries: Dirent[];

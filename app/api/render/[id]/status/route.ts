@@ -19,6 +19,9 @@ export async function GET(
     }
   }
 
+  const { fileExists, getThumbnailPath } = await import("@/lib/tempfiles");
+  const hasThumbnail = job.status === "done" && (await fileExists(getThumbnailPath(id)));
+
   return Response.json(
     {
       status: job.status,
@@ -26,6 +29,7 @@ export async function GET(
       error: job.error,
       styleId: job.styleId,
       aspectRatio: job.aspectRatio,
+      hasThumbnail,
     },
     { headers: { "Cache-Control": "no-store" } },
   );
