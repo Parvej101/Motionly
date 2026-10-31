@@ -4,6 +4,8 @@ import { ModernKineticText } from "../components/ModernKineticText";
 import { PresenterPip } from "../components/PresenterPip";
 import { Transition } from "../components/Transition";
 import { Watermark } from "../components/Watermark";
+import { VectorMotionRenderer } from "../components/VectorMotionRenderer";
+import { DeconstructedPartsRenderer } from "../components/DeconstructedPartsRenderer";
 import { withAlpha } from "../color";
 import { getFontStack } from "../fonts";
 import { buildScenes } from "../scenes";
@@ -25,20 +27,31 @@ export const KineticStyle = (props: VideoProps) => {
   return (
     <AbsoluteFill style={{ backgroundColor: "#060609", fontFamily, overflow: "hidden" }}>
       {/* Background Images with smooth Ken Burns & Transitions */}
-      {scenes.map((scene) => (
-        <Sequence key={`${scene.index}-${scene.from}`} from={scene.from} durationInFrames={scene.durationInFrames}>
-          <Transition durationInFrames={scene.durationInFrames} fadeIn={8} fadeOut={10} slide={28} direction="up">
-            <KenBurns
-              src={scene.src}
+      {scenes.map((scene) => {
+        const transitionDirections: Array<"none" | "right" | "up" | "left"> = ["none", "right", "up", "left"];
+        const direction = transitionDirections[scene.index % transitionDirections.length];
+
+        return (
+          <Sequence key={`${scene.index}-${scene.from}`} from={scene.from} durationInFrames={scene.durationInFrames}>
+            <Transition
               durationInFrames={scene.durationInFrames}
-              index={scene.index}
-              brightness={0.42}
-              saturation={0.85}
-              endScale={1.24}
-            />
-          </Transition>
-        </Sequence>
-      ))}
+              fadeIn={8}
+              fadeOut={10}
+              slide={direction === "none" ? 0 : 32}
+              direction={direction}
+            >
+              <KenBurns
+                src={scene.src}
+                durationInFrames={scene.durationInFrames}
+                index={scene.index}
+                brightness={0.42}
+                saturation={0.85}
+                advancedMotion={props.advancedMotion}
+              />
+            </Transition>
+          </Sequence>
+        );
+      })}
 
       {/* Modern Cinematic Vignette & Gradient Overlays */}
       <AbsoluteFill
@@ -119,6 +132,18 @@ export const KineticStyle = (props: VideoProps) => {
         </div>
       </div>
 
+      {/* Dynamic Vector Motion Overlays */}
+      <VectorMotionRenderer
+        overlays={props.advancedMotion?.vectorOverlays}
+        brandColor={props.brandColor}
+      />
+
+      {/* AI Generic Multi-Part Motion Decomposition Renderer */}
+      <DeconstructedPartsRenderer
+        parts={props.advancedMotion?.deconstructedParts}
+        brandColor={props.brandColor}
+      />
+
       {/* Dynamic Animated Content */}
       <AbsoluteFill
         style={{
@@ -164,6 +189,7 @@ export const KineticStyle = (props: VideoProps) => {
                     fontFamily={fontFamily}
                     position={slide?.textPosition || props.textPosition || "center"}
                     animation={slide?.textAnimation || props.textAnimation || "pop"}
+                    glassEffect={slide?.textGlassEffect ?? props.textGlassEffect}
                     durationInFrames={scene.durationInFrames}
                   />
                 </div>
@@ -180,6 +206,7 @@ export const KineticStyle = (props: VideoProps) => {
             fontFamily={fontFamily}
             position={props.textPosition || "center"}
             animation={props.textAnimation || "pop"}
+            glassEffect={props.textGlassEffect}
             durationInFrames={durationInFrames}
           />
         )}

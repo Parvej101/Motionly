@@ -21,7 +21,7 @@ const guestUsage = () => {
   return globalForUsage.__motionlyGuestUsage;
 };
 
-const consumeGuest = (ip: string) => {
+const _consumeGuest = (ip: string) => {
   const key = currentMonthKey();
   const map = guestUsage();
   const existing = map.get(ip);
@@ -57,13 +57,12 @@ export const consumeRender = async (input: {
   const monthKey = currentMonthKey();
 
   if (!input.user) {
-    const guest = consumeGuest(input.ip);
+    // Guest render limit temporarily turned off
     return {
-      allowed: guest.allowed,
-      watermark: true,
+      allowed: true,
+      watermark: false,
       plan: "free",
-      remaining: guest.remaining,
-      reason: guest.allowed ? undefined : "Free guest limit reached. Sign in for more renders.",
+      remaining: 9999,
     };
   }
 

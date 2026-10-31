@@ -10,6 +10,7 @@ export type RenderJob = {
   status: RenderJobStatus;
   styleId: string;
   aspectRatio: AspectRatio;
+  progress?: number;
   error?: string;
   createdAt: Date;
 };
@@ -20,6 +21,7 @@ export type RenderJobView = {
   status: RenderJobStatus;
   styleId: string;
   aspectRatio: AspectRatio;
+  progress?: number;
   error?: string;
   createdAt: Date;
 };
@@ -61,6 +63,7 @@ const toView = (job: RenderJob): RenderJobView => ({
   status: job.status,
   styleId: job.styleId,
   aspectRatio: job.aspectRatio,
+  progress: job.progress,
   error: job.error,
   createdAt: job.createdAt,
 });
@@ -105,7 +108,7 @@ export const createJob = async (input: {
 
 export const updateJob = async (
   id: string,
-  patch: Partial<Pick<RenderJob, "status" | "error">>,
+  patch: Partial<Pick<RenderJob, "status" | "error" | "progress">>,
 ) => {
   const db = await getDb();
   if (db && ObjectId.isValid(id)) {

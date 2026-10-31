@@ -64,7 +64,13 @@ export const MinimalStyle = (props: VideoProps) => {
                 fadeIn={scene.index === 0 ? 0 : 14}
                 fadeOut={scene.index === scenes.length - 1 ? 0 : 14}
               >
-                <KenBurns src={scene.src} durationInFrames={scene.durationInFrames} index={scene.index} endScale={1.13} />
+                <KenBurns
+                  src={scene.src}
+                  durationInFrames={scene.durationInFrames}
+                  index={scene.index}
+                  endScale={1.13}
+                  advancedMotion={props.advancedMotion}
+                />
               </Transition>
             </Sequence>
           ))}

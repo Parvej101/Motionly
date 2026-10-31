@@ -66,6 +66,8 @@ export const renderVideo = async (jobId: string, props: VideoProps) => {
     browserExecutable,
   });
 
+  let lastReportedPct = -1;
+
   await renderMedia({
     composition,
     serveUrl,
@@ -74,6 +76,21 @@ export const renderVideo = async (jobId: string, props: VideoProps) => {
     inputProps: props,
     browserExecutable,
     overwrite: true,
+    imageFormat: "jpeg",
+    jpegQuality: 88,
+    concurrency: 4,
+    pixelFormat: "yuv420p",
+    crf: 19,
+    chromiumOptions: {
+      disableWebSecurity: true,
+    },
+    onProgress: ({ progress }) => {
+      const pct = Math.min(99, Math.round(progress * 100));
+      if (pct >= lastReportedPct + 2) {
+        lastReportedPct = pct;
+        void updateJob(jobId, { progress: pct }).catch(() => undefined);
+      }
+    },
     onBrowserLog: (log) => {
       if (log.type === "error") {
         console.error(`[motionly] browser: ${log.text}`);
@@ -84,10 +101,10 @@ export const renderVideo = async (jobId: string, props: VideoProps) => {
 
 export const processRender = async (jobId: string, props: VideoProps) => {
   try {
-    await updateJob(jobId, { status: "rendering" });
+    await updateJob(jobId, { status: "rendering", progress: 0 });
     await renderVideo(jobId, props);
     await deleteJobImages(jobId).catch(() => undefined);
-    await updateJob(jobId, { status: "done" });
+    await updateJob(jobId, { status: "done", progress: 100 });
   } catch (error) {
     console.error(`[motionly] render ${jobId} failed`, error);
     await deleteJobDir(jobId).catch(() => undefined);

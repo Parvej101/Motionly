@@ -224,7 +224,14 @@ export const CorporateStyle = (props: VideoProps) => {
           {scenes.map((scene) => (
             <Sequence key={`${scene.index}-${scene.from}`} from={scene.from} durationInFrames={scene.durationInFrames}>
               <Transition durationInFrames={scene.durationInFrames} fadeIn={scene.index === 0 ? 0 : 12} fadeOut={scene.index === scenes.length - 1 ? 0 : 12}>
-                <KenBurns src={scene.src} durationInFrames={scene.durationInFrames} index={scene.index} endScale={1.14} brightness={0.94} />
+                <KenBurns
+                  src={scene.src}
+                  durationInFrames={scene.durationInFrames}
+                  index={scene.index}
+                  endScale={1.14}
+                  brightness={0.94}
+                  advancedMotion={props.advancedMotion}
+                />
               </Transition>
             </Sequence>
           ))}

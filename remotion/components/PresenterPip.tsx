@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Video, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { withAlpha } from "../color";
 import type { PresenterConfig } from "../types";
 
@@ -10,7 +10,7 @@ type PresenterPipProps = {
 
 export const PresenterPip = ({ presenter, brandColor = "#7c5cff" }: PresenterPipProps) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps, width, height, durationInFrames } = useVideoConfig();
 
   if (!presenter || !presenter.enabled || !presenter.videoUrl) {
     return null;
@@ -34,9 +34,53 @@ export const PresenterPip = ({ presenter, brandColor = "#7c5cff" }: PresenterPip
     config: { damping: 14, mass: 0.8, stiffness: 140 },
   });
 
+  // Calculate exit animation if presenter recording duration is specified and shorter than the video
+  const presenterFrames = presenter.durationInSeconds
+    ? Math.round(presenter.durationInSeconds * fps)
+    : undefined;
+  const isShorterThanVideo = presenterFrames !== undefined && presenterFrames < durationInFrames;
+
+  // Start exit 14 frames before the recording ends so it smoothly pops away
+  const exitDuration = 14;
+  const exitStartFrame = isShorterThanVideo
+    ? Math.max(0, presenterFrames - exitDuration)
+    : undefined;
+
+  let exitScale = 1;
+  let exitOpacity = 1;
+  let exitTranslateY = 0;
+
+  if (isShorterThanVideo && exitStartFrame !== undefined) {
+    if (frame >= exitStartFrame + exitDuration) {
+      // Recording has completely finished, do not render presenter anymore
+      return null;
+    }
+    if (frame >= exitStartFrame) {
+      const exitProgress = spring({
+        frame: frame - exitStartFrame,
+        fps,
+        config: { damping: 12, mass: 0.6, stiffness: 180 },
+      });
+      // Pop up slightly then shrink away into the corner
+      exitScale = interpolate(exitProgress, [0, 0.3, 1], [1, 1.08, 0], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      });
+      exitOpacity = interpolate(exitProgress, [0, 0.8], [1, 0], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      });
+      exitTranslateY = interpolate(exitProgress, [0, 1], [0, 30], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      });
+    }
+  }
+
   const floatY = Math.sin(frame / 25) * 4;
 
   const cornerOffset = isHorizontal ? 40 : 50;
+  const combinedScale = entrance * exitScale;
 
   const containerStyle: CSSProperties = {
     position: "absolute",
@@ -49,18 +93,21 @@ export const PresenterPip = ({ presenter, brandColor = "#7c5cff" }: PresenterPip
     border: `3.5px solid ${brandColor}`,
     boxShadow: `0 16px 45px rgba(0, 0, 0, 0.65), 0 0 25px ${withAlpha(brandColor, 0.45)}`,
     zIndex: 50,
-    transform: `scale(${entrance}) translateY(${floatY}px)`,
+    transform: `scale(${combinedScale}) translateY(${floatY + exitTranslateY}px)`,
     transformOrigin: position === "bottom-left" ? "left bottom" : "right bottom",
+    opacity: exitOpacity,
     backgroundColor: "#111116",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    pointerEvents: "none",
   };
 
   return (
     <div style={containerStyle}>
-      <Video
+      <OffthreadVideo
         src={presenter.videoUrl}
+        pauseWhenBuffering={false}
         style={{
           width: "100%",
           height: "100%",

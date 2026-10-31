@@ -1,14 +1,16 @@
 import {
+  LAYOUT_IDS,
   STYLE_IDS,
   type AspectRatio,
   type FontFamily,
+  type LayoutId,
   type StyleId,
   type VideoProps,
 } from "@/remotion/types";
 
 export const MAX_IMAGES = 10;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-export const MAX_HEADLINE_LENGTH = 80;
+export const MAX_HEADLINE_LENGTH = 120;
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const allowedAspectRatios = new Set<AspectRatio>(["9:16", "1:1", "16:9"]);
 const allowedFonts = new Set<FontFamily>(["NotoSansBengali", "HindSiliguri", "Inter"]);
@@ -25,6 +27,8 @@ export class ValidationError extends Error {
 export type RenderSubmission = {
   baseProps: Omit<VideoProps, "images"> & { images?: never };
   images: File[];
+  audioFile?: File;
+  presenterFile?: File;
 };
 
 const asString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
@@ -55,9 +59,6 @@ export const parseRenderSubmission = (formData: FormData): RenderSubmission => {
   }
 
   const headline = asString(parsed.headline);
-  if (!headline) {
-    throw new ValidationError("Headline is required.");
-  }
   if (headline.length > MAX_HEADLINE_LENGTH) {
     throw new ValidationError(`Headline must be ${MAX_HEADLINE_LENGTH} characters or fewer.`);
   }
@@ -66,6 +67,9 @@ export const parseRenderSubmission = (formData: FormData): RenderSubmission => {
   if (!STYLE_IDS.includes(styleId)) {
     throw new ValidationError("Unknown style.");
   }
+
+  const rawLayoutId = asString(parsed.layoutId) as LayoutId;
+  const layoutId = LAYOUT_IDS.includes(rawLayoutId) ? rawLayoutId : undefined;
 
   const aspectRatio = asString(parsed.aspectRatio) as AspectRatio;
   if (!allowedAspectRatios.has(aspectRatio)) {
@@ -155,31 +159,49 @@ export const parseRenderSubmission = (formData: FormData): RenderSubmission => {
       subtitle: typeof s?.subtitle === "string" ? s.subtitle.slice(0, 180) : "",
       textPosition: allowedPositions.has(s?.textPosition) ? s.textPosition : undefined,
       textAnimation: allowedAnimations.has(s?.textAnimation) ? s.textAnimation : undefined,
+      textGlassEffect: typeof s?.textGlassEffect === "boolean" ? s.textGlassEffect : undefined,
     }));
   }
+
+  const audioFileEntry = formData.get("audioFile");
+  const audioFile = audioFileEntry instanceof File && audioFileEntry.size > 0 ? audioFileEntry : undefined;
+
+  const presenterFileEntry = formData.get("presenterFile");
+  const presenterFile = presenterFileEntry instanceof File && presenterFileEntry.size > 0 ? presenterFileEntry : undefined;
 
   let presenter = undefined;
   if (parsed.presenter && typeof parsed.presenter === "object") {
     const p = parsed.presenter as Record<string, unknown>;
     if (p.enabled) {
-      presenter = {
-        enabled: true,
-        videoUrl: typeof p.videoUrl === "string" ? p.videoUrl : undefined,
-        shape: (p.shape === "rounded" ? "rounded" : "circle") as "rounded" | "circle",
-        size: (p.size === "small" || p.size === "large" ? p.size : "medium") as "small" | "medium" | "large",
-        position: (p.position === "bottom-left" ? "bottom-left" : "bottom-right") as "bottom-left" | "bottom-right",
-      };
+      const rawUrl = typeof p.videoUrl === "string" ? p.videoUrl : undefined;
+      // Do not allow raw client-side blob: URLs to crash Remotion server render
+      const videoUrl = rawUrl && !rawUrl.startsWith("blob:") ? rawUrl : undefined;
+      if (videoUrl || presenterFile) {
+        const rawDur = typeof p.durationInSeconds === "number" && p.durationInSeconds > 0
+          ? Math.round(p.durationInSeconds * 10) / 10
+          : undefined;
+        presenter = {
+          enabled: true,
+          videoUrl,
+          shape: (p.shape === "rounded" ? "rounded" : "circle") as "rounded" | "circle",
+          size: (p.size === "small" || p.size === "large" ? p.size : "medium") as "small" | "medium" | "large",
+          position: (p.position === "bottom-left" ? "bottom-left" : "bottom-right") as "bottom-left" | "bottom-right",
+          durationInSeconds: rawDur,
+        };
+      }
     }
   }
 
   let audio = undefined;
   if (parsed.audio && typeof parsed.audio === "object") {
     const a = parsed.audio as Record<string, unknown>;
-    if (typeof a.audioUrl === "string" && a.audioUrl) {
+    const rawAudioUrl = typeof a.audioUrl === "string" ? a.audioUrl : undefined;
+    const audioUrl = rawAudioUrl && !rawAudioUrl.startsWith("blob:") ? rawAudioUrl : undefined;
+    if (audioUrl || audioFile) {
       const startFromSeconds = typeof a.startFromSeconds === "number" && a.startFromSeconds >= 0 ? a.startFromSeconds : 0;
       const endAtSeconds = typeof a.endAtSeconds === "number" && a.endAtSeconds > startFromSeconds ? a.endAtSeconds : undefined;
       audio = {
-        audioUrl: a.audioUrl,
+        audioUrl: audioUrl || "",
         volume: typeof a.volume === "number" ? Math.max(0, Math.min(1, a.volume)) : 1,
         loop: Boolean(a.loop),
         startFromSeconds,
@@ -188,8 +210,31 @@ export const parseRenderSubmission = (formData: FormData): RenderSubmission => {
     }
   }
 
+  let advancedMotion = undefined;
+  if (parsed.advancedMotion && typeof parsed.advancedMotion === "object") {
+    const am = parsed.advancedMotion as Record<string, unknown>;
+    if (am.enabled) {
+      advancedMotion = {
+        enabled: true,
+        engine: (am.engine === "ai_generative" ? "ai_generative" : "free_parallax") as "ai_generative" | "free_parallax",
+        parallaxStrength: (am.parallaxStrength === "dramatic" || am.parallaxStrength === "medium" ? am.parallaxStrength : "subtle") as "subtle" | "medium" | "dramatic",
+        ambientParticle: Boolean(am.ambientParticle),
+        cameraZoom: (["in", "out", "pan_left", "pan_right"].includes(am.cameraZoom as string) ? am.cameraZoom : "in") as "in" | "out" | "pan_left" | "pan_right",
+        aiConfig: am.aiConfig && typeof am.aiConfig === "object" ? {
+          provider: (["google_gemini", "replicate_svd", "fal_kling"].includes((am.aiConfig as Record<string, unknown>).provider as string) ? (am.aiConfig as Record<string, unknown>).provider : "google_gemini") as "google_gemini" | "replicate_svd" | "fal_kling",
+          apiKey: typeof (am.aiConfig as Record<string, unknown>).apiKey === "string" ? ((am.aiConfig as Record<string, unknown>).apiKey as string).slice(0, 200) : undefined,
+          motionPrompt: typeof (am.aiConfig as Record<string, unknown>).motionPrompt === "string" ? ((am.aiConfig as Record<string, unknown>).motionPrompt as string).slice(0, 300) : undefined,
+          motionIntensity: typeof (am.aiConfig as Record<string, unknown>).motionIntensity === "number" ? Math.max(1, Math.min(10, (am.aiConfig as Record<string, unknown>).motionIntensity as number)) : 5,
+          generatedVideoUrls: (am.aiConfig as Record<string, unknown>).generatedVideoUrls as Record<number, string> | undefined,
+        } : undefined,
+      };
+    }
+  }
+
   return {
     images,
+    audioFile,
+    presenterFile,
     baseProps: {
       headline,
       subtitle: subtitle || undefined,
@@ -200,11 +245,14 @@ export const parseRenderSubmission = (formData: FormData): RenderSubmission => {
       aspectRatio,
       durationInSeconds: Math.round(durationInSeconds * 10) / 10,
       styleId,
+      layoutId,
       textPosition,
       textAnimation,
+      textGlassEffect: typeof parsed.textGlassEffect === "boolean" ? parsed.textGlassEffect : undefined,
       slideTexts,
       presenter,
       audio,
+      advancedMotion,
     },
   };
 };

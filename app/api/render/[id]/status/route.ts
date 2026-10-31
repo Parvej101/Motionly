@@ -22,6 +22,7 @@ export async function GET(
   return Response.json(
     {
       status: job.status,
+      progress: job.progress ?? 0,
       error: job.error,
       styleId: job.styleId,
       aspectRatio: job.aspectRatio,

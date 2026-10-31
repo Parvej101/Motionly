@@ -29,6 +29,7 @@ export const PresenterPipRecorder = ({ presenterConfig, onChange }: PresenterPip
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,7 +42,15 @@ export const PresenterPipRecorder = ({ presenterConfig, onChange }: PresenterPip
     };
   }, []);
 
-  const updateConfig = (newUrl: string | null, newShape = shape, newSize = size, newPos = position) => {
+  const [videoDuration, setVideoDuration] = useState<number | undefined>(presenterConfig?.durationInSeconds);
+
+  const updateConfig = (
+    newUrl: string | null,
+    newShape = shape,
+    newSize = size,
+    newPos = position,
+    newDuration = videoDuration,
+  ) => {
     if (!newUrl) {
       onChange({
         enabled,
@@ -49,6 +58,7 @@ export const PresenterPipRecorder = ({ presenterConfig, onChange }: PresenterPip
         shape: newShape,
         size: newSize,
         position: newPos,
+        durationInSeconds: undefined,
       });
       return;
     }
@@ -58,6 +68,7 @@ export const PresenterPipRecorder = ({ presenterConfig, onChange }: PresenterPip
       shape: newShape,
       size: newSize,
       position: newPos,
+      durationInSeconds: newDuration,
     });
   };
 
@@ -111,10 +122,19 @@ export const PresenterPipRecorder = ({ presenterConfig, onChange }: PresenterPip
   const startRecording = () => {
     if (!streamRef.current) return;
     chunksRef.current = [];
+
+    const candidates = [
+      "video/mp4;codecs=avc1,mp4a.40.2",
+      "video/mp4",
+      "video/webm;codecs=vp8,opus",
+      "video/webm;codecs=vp9,opus",
+      "video/webm",
+    ];
+    const selectedMime = candidates.find((m) => MediaRecorder.isTypeSupported(m)) || "video/webm";
+
     const mediaRecorder = new MediaRecorder(streamRef.current, {
-      mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-        ? "video/webm;codecs=vp9,opus"
-        : "video/webm",
+      mimeType: selectedMime,
+      videoBitsPerSecond: 2500000,
     });
     mediaRecorderRef.current = mediaRecorder;
 
@@ -125,14 +145,19 @@ export const PresenterPipRecorder = ({ presenterConfig, onChange }: PresenterPip
     };
 
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const blob = new Blob(chunksRef.current, { type: selectedMime });
       const url = URL.createObjectURL(blob);
+      const elapsedSeconds = startTimeRef.current
+        ? Math.max(1, Math.round(((Date.now() - startTimeRef.current) / 1000) * 10) / 10)
+        : Math.max(1, recordDuration);
+      setVideoDuration(elapsedSeconds);
       setVideoUrl(url);
-      updateConfig(url);
+      updateConfig(url, shape, size, position, elapsedSeconds);
       stopCameraStream();
     };
 
-    mediaRecorder.start(200);
+    startTimeRef.current = Date.now();
+    mediaRecorder.start(1000);
     setIsRecording(true);
     setRecordDuration(0);
 
@@ -159,8 +184,22 @@ export const PresenterPipRecorder = ({ presenterConfig, onChange }: PresenterPip
     }
 
     const url = URL.createObjectURL(file);
-    setVideoUrl(url);
-    updateConfig(url);
+    const tempVideo = document.createElement("video");
+    tempVideo.preload = "metadata";
+    tempVideo.onloadedmetadata = () => {
+      const dur = Number.isFinite(tempVideo.duration) && tempVideo.duration > 0
+        ? Math.round(tempVideo.duration * 10) / 10
+        : undefined;
+      setVideoDuration(dur);
+      setVideoUrl(url);
+      updateConfig(url, shape, size, position, dur);
+    };
+    tempVideo.onerror = () => {
+      setVideoDuration(undefined);
+      setVideoUrl(url);
+      updateConfig(url, shape, size, position, undefined);
+    };
+    tempVideo.src = url;
   };
 
   const removeVideo = () => {

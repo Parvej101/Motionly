@@ -92,13 +92,29 @@ export const SocialPromoStyle = (props: VideoProps) => {
           }}
         >
           <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: 24, overflow: "hidden", backgroundColor: "#1a0716" }}>
-            {scenes.map((scene) => (
-              <Sequence key={`${scene.index}-${scene.from}`} from={scene.from} durationInFrames={scene.durationInFrames}>
-                <Transition durationInFrames={scene.durationInFrames} fadeIn={8} fadeOut={8} slide={26} direction="up">
-                  <KenBurns src={scene.src} durationInFrames={scene.durationInFrames} index={scene.index} endScale={1.2} />
-                </Transition>
-              </Sequence>
-            ))}
+            {scenes.map((scene) => {
+              const transitionDirections: Array<"none" | "right" | "up" | "left"> = ["none", "right", "up", "left"];
+              const direction = transitionDirections[scene.index % transitionDirections.length];
+
+              return (
+                <Sequence key={`${scene.index}-${scene.from}`} from={scene.from} durationInFrames={scene.durationInFrames}>
+                  <Transition
+                    durationInFrames={scene.durationInFrames}
+                    fadeIn={8}
+                    fadeOut={8}
+                    slide={direction === "none" ? 0 : 26}
+                    direction={direction}
+                  >
+                    <KenBurns
+                      src={scene.src}
+                      durationInFrames={scene.durationInFrames}
+                      index={scene.index}
+                      advancedMotion={props.advancedMotion}
+                    />
+                  </Transition>
+                </Sequence>
+              );
+            })}
             <div
               style={{
                 position: "absolute",
@@ -170,6 +186,7 @@ export const SocialPromoStyle = (props: VideoProps) => {
                     fontFamily={fontFamily}
                     position={slide?.textPosition || props.textPosition || "center"}
                     animation={slide?.textAnimation || props.textAnimation || "pop"}
+                    glassEffect={slide?.textGlassEffect ?? props.textGlassEffect}
                     durationInFrames={scene.durationInFrames}
                     maxWidth="100%"
                   />
@@ -185,6 +202,7 @@ export const SocialPromoStyle = (props: VideoProps) => {
               fontFamily={fontFamily}
               position={props.textPosition || "center"}
               animation={props.textAnimation || "pop"}
+              glassEffect={props.textGlassEffect}
               durationInFrames={durationInFrames}
               maxWidth="100%"
             />

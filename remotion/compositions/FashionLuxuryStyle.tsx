@@ -45,6 +45,7 @@ export const FashionLuxuryStyle = (props: VideoProps) => {
               saturation={0.88}
               startScale={1.02}
               endScale={1.11}
+              advancedMotion={props.advancedMotion}
             />
           </Transition>
         </Sequence>
@@ -78,169 +79,169 @@ export const FashionLuxuryStyle = (props: VideoProps) => {
         </div>
       </div>
 
-        {hasSlideTexts ? (
-          scenes.map((scene) => {
-            const slide = props.slideTexts?.[scene.index];
-            const headline = slide?.headline || "";
-            const subtitle = slide?.subtitle || "";
-            const isLastScene = scene.index === scenes.length - 1;
-            if (!headline && !subtitle && (!isLastScene || !props.cta)) {
-              return null;
-            }
+      {hasSlideTexts ? (
+        scenes.map((scene) => {
+          const slide = props.slideTexts?.[scene.index];
+          const headline = slide?.headline || "";
+          const subtitle = slide?.subtitle || "";
+          const isLastScene = scene.index === scenes.length - 1;
+          if (!headline && !subtitle && (!isLastScene || !props.cta)) {
+            return null;
+          }
 
-            const slideHeadlineSize = Math.max(40, Math.min(baseSize, baseSize - Math.max(0, headline.length - 26) * 1.4));
+          const slideHeadlineSize = Math.max(40, Math.min(baseSize, baseSize - Math.max(0, headline.length - 26) * 1.4));
 
-            return (
-              <Sequence key={`text-${scene.index}`} from={scene.from} durationInFrames={scene.durationInFrames}>
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: horizontal ? "120px 150px" : "170px 70px 140px",
-                    boxSizing: "border-box",
-                    textAlign: "center",
-                  }}
-                >
-                  <div style={{ width: ruleWidth, height: 1, backgroundColor: withAlpha(props.brandColor, 0.9), marginBottom: 34 }} />
-                  {headline ? (
+          return (
+            <Sequence key={`text-${scene.index}`} from={scene.from} durationInFrames={scene.durationInFrames}>
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: horizontal ? "120px 150px" : "170px 70px 140px",
+                  boxSizing: "border-box",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ width: ruleWidth, height: 1, backgroundColor: withAlpha(props.brandColor, 0.9), marginBottom: 34 }} />
+                {headline ? (
+                  <AnimatedText
+                    text={headline}
+                    delay={4}
+                    fontSize={slideHeadlineSize}
+                    fontWeight={400}
+                    color="#ffffff"
+                    fontFamily={fontFamily}
+                    letterSpacing={horizontal ? 8 : 5}
+                    lineHeight={1.08}
+                    align="center"
+                    uppercase
+                    maxWidth={horizontal ? 1380 : "100%"}
+                    enterFrom="none"
+                    animation={slide?.textAnimation || props.textAnimation}
+                    brandColor={props.brandColor}
+                    durationInFrames={scene.durationInFrames}
+                  />
+                ) : null}
+                <div style={{ width: ruleWidth, height: 1, backgroundColor: withAlpha(props.brandColor, 0.9), marginTop: 34 }} />
+
+                {subtitle ? (
+                  <AnimatedText
+                    text={subtitle}
+                    delay={14}
+                    fontSize={horizontal ? 25 : 27}
+                    fontWeight={400}
+                    color="rgba(255,255,255,0.78)"
+                    fontFamily={fontFamily}
+                    letterSpacing={1.4}
+                    lineHeight={1.6}
+                    align="center"
+                    maxWidth={horizontal ? 800 : "90%"}
+                    style={{ marginTop: 30 }}
+                  />
+                ) : null}
+
+                {isLastScene && props.cta ? (
+                  <div style={{ marginTop: 42 }}>
                     <AnimatedText
-                      text={headline}
-                      delay={4}
-                      fontSize={slideHeadlineSize}
-                      fontWeight={400}
-                      color="#ffffff"
+                      text={props.cta}
+                      delay={20}
+                      fontSize={horizontal ? 20 : 22}
+                      fontWeight={600}
+                      color={readableOn(props.brandColor)}
                       fontFamily={fontFamily}
-                      letterSpacing={horizontal ? 8 : 5}
-                      lineHeight={1.08}
+                      letterSpacing={3}
                       align="center"
                       uppercase
-                      maxWidth={horizontal ? 1380 : "100%"}
-                      enterFrom="none"
-                      animation={slide?.textAnimation || props.textAnimation}
-                      brandColor={props.brandColor}
-                      durationInFrames={scene.durationInFrames}
+                      style={{
+                        display: "inline-block",
+                        padding: "16px 42px",
+                        border: `1px solid ${props.brandColor}`,
+                        backgroundColor: props.brandColor,
+                      }}
                     />
-                  ) : null}
-                  <div style={{ width: ruleWidth, height: 1, backgroundColor: withAlpha(props.brandColor, 0.9), marginTop: 34 }} />
-
-                  {subtitle ? (
-                    <AnimatedText
-                      text={subtitle}
-                      delay={14}
-                      fontSize={horizontal ? 25 : 27}
-                      fontWeight={400}
-                      color="rgba(255,255,255,0.78)"
-                      fontFamily={fontFamily}
-                      letterSpacing={1.4}
-                      lineHeight={1.6}
-                      align="center"
-                      maxWidth={horizontal ? 800 : "90%"}
-                      style={{ marginTop: 30 }}
-                    />
-                  ) : null}
-
-                  {isLastScene && props.cta ? (
-                    <div style={{ marginTop: 42 }}>
-                      <AnimatedText
-                        text={props.cta}
-                        delay={20}
-                        fontSize={horizontal ? 20 : 22}
-                        fontWeight={600}
-                        color={readableOn(props.brandColor)}
-                        fontFamily={fontFamily}
-                        letterSpacing={3}
-                        align="center"
-                        uppercase
-                        style={{
-                          display: "inline-block",
-                          padding: "16px 42px",
-                          border: `1px solid ${props.brandColor}`,
-                          backgroundColor: props.brandColor,
-                        }}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </Sequence>
-            );
-          })
-        ) : (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: horizontal ? "120px 150px" : "170px 70px 140px",
-              boxSizing: "border-box",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ width: ruleWidth, height: 1, backgroundColor: withAlpha(props.brandColor, 0.9), marginBottom: 34 }} />
-            <AnimatedText
-              text={props.headline}
-              delay={6}
-              fontSize={headlineSize}
-              fontWeight={400}
-              color="#ffffff"
-              fontFamily={fontFamily}
-              letterSpacing={horizontal ? 8 : 5}
-              lineHeight={1.08}
-              align="center"
-              uppercase
-              maxWidth={horizontal ? 1380 : "100%"}
-              enterFrom="none"
-              animation={props.textAnimation}
-              brandColor={props.brandColor}
-              durationInFrames={durationInFrames}
-            />
-            <div style={{ width: ruleWidth, height: 1, backgroundColor: withAlpha(props.brandColor, 0.9), marginTop: 34 }} />
-
-            {props.subtitle ? (
-              <AnimatedText
-                text={props.subtitle}
-                delay={20}
-                fontSize={horizontal ? 25 : 27}
-                fontWeight={400}
-                color="rgba(255,255,255,0.78)"
-                fontFamily={fontFamily}
-                letterSpacing={1.4}
-                lineHeight={1.6}
-                align="center"
-                maxWidth={horizontal ? 800 : "90%"}
-                style={{ marginTop: 30 }}
-              />
-            ) : null}
-
-            {props.cta ? (
-              <div style={{ marginTop: 42 }}>
-                <AnimatedText
-                  text={props.cta}
-                  delay={32}
-                  fontSize={horizontal ? 20 : 22}
-                  fontWeight={600}
-                  color={readableOn(props.brandColor)}
-                  fontFamily={fontFamily}
-                  letterSpacing={3}
-                  align="center"
-                  uppercase
-                  style={{
-                    display: "inline-block",
-                    padding: "16px 42px",
-                    border: `1px solid ${props.brandColor}`,
-                    backgroundColor: props.brandColor,
-                  }}
-                />
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-        )}
+            </Sequence>
+          );
+        })
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: horizontal ? "120px 150px" : "170px 70px 140px",
+            boxSizing: "border-box",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ width: ruleWidth, height: 1, backgroundColor: withAlpha(props.brandColor, 0.9), marginBottom: 34 }} />
+          <AnimatedText
+            text={props.headline}
+            delay={6}
+            fontSize={headlineSize}
+            fontWeight={400}
+            color="#ffffff"
+            fontFamily={fontFamily}
+            letterSpacing={horizontal ? 8 : 5}
+            lineHeight={1.08}
+            align="center"
+            uppercase
+            maxWidth={horizontal ? 1380 : "100%"}
+            enterFrom="none"
+            animation={props.textAnimation}
+            brandColor={props.brandColor}
+            durationInFrames={durationInFrames}
+          />
+          <div style={{ width: ruleWidth, height: 1, backgroundColor: withAlpha(props.brandColor, 0.9), marginTop: 34 }} />
+
+          {props.subtitle ? (
+            <AnimatedText
+              text={props.subtitle}
+              delay={20}
+              fontSize={horizontal ? 25 : 27}
+              fontWeight={400}
+              color="rgba(255,255,255,0.78)"
+              fontFamily={fontFamily}
+              letterSpacing={1.4}
+              lineHeight={1.6}
+              align="center"
+              maxWidth={horizontal ? 800 : "90%"}
+              style={{ marginTop: 30 }}
+            />
+          ) : null}
+
+          {props.cta ? (
+            <div style={{ marginTop: 42 }}>
+              <AnimatedText
+                text={props.cta}
+                delay={32}
+                fontSize={horizontal ? 20 : 22}
+                fontWeight={600}
+                color={readableOn(props.brandColor)}
+                fontFamily={fontFamily}
+                letterSpacing={3}
+                align="center"
+                uppercase
+                style={{
+                  display: "inline-block",
+                  padding: "16px 42px",
+                  border: `1px solid ${props.brandColor}`,
+                  backgroundColor: props.brandColor,
+                }}
+              />
+            </div>
+          ) : null}
+        </div>
+      )}
 
       <div style={{ position: "absolute", bottom: 42, left: 56, right: 56, display: "flex", justifyContent: "space-between" }}>
         <span style={{ fontSize: 16, letterSpacing: 4, textTransform: "uppercase", color: "rgba(255,255,255,0.5)" }}>

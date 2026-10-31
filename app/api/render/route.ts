@@ -8,6 +8,7 @@ import { processRender } from "@/lib/render";
 import { createJobDir, deleteJobDir } from "@/lib/tempfiles";
 import { consumeRender } from "@/lib/usage";
 import { parseRenderSubmission, ValidationError } from "@/lib/validation";
+import { preparePresenterVideo } from "@/lib/transcode";
 import type { VideoProps } from "@/remotion/types";
 
 export const maxDuration = 300;
@@ -20,7 +21,7 @@ const json = (body: unknown, status = 200, headers?: Record<string, string>) =>
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
-  const ipLimit = checkRateLimit(`render:ip:${ip}`, 6, 10 * 60 * 1000);
+  const ipLimit = checkRateLimit(`render:ip:${ip}`, 100, 10 * 60 * 1000);
   if (!ipLimit.allowed) {
     return json(
       { error: "Too many render attempts. Try again shortly." },
@@ -104,6 +105,39 @@ export async function POST(request: Request) {
       images,
       watermark: usage.watermark,
     };
+
+    if (submission.audioFile) {
+      const audioBuf = Buffer.from(await submission.audioFile.arrayBuffer());
+      const mime = submission.audioFile.type || "audio/webm";
+      if (props.audio) {
+        props.audio.audioUrl = `data:${mime};base64,${audioBuf.toString("base64")}`;
+      } else {
+        props.audio = {
+          audioUrl: `data:${mime};base64,${audioBuf.toString("base64")}`,
+        };
+      }
+    }
+
+    if (submission.presenterFile) {
+      const presenterBuffer = Buffer.from(await submission.presenterFile.arrayBuffer());
+      const normalized = await preparePresenterVideo({
+        jobId: activeJobId,
+        buffer: presenterBuffer,
+        maxDurationInSeconds: props.durationInSeconds || 15,
+      });
+      if (props.presenter) {
+        props.presenter.videoUrl = normalized.videoUrl;
+        if (!props.presenter.durationInSeconds && normalized.durationInSeconds) {
+          props.presenter.durationInSeconds = normalized.durationInSeconds;
+        }
+      } else {
+        props.presenter = {
+          enabled: true,
+          videoUrl: normalized.videoUrl,
+          durationInSeconds: normalized.durationInSeconds,
+        };
+      }
+    }
 
     after(() => {
       void processRender(activeJobId, props);
